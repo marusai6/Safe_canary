@@ -1,3 +1,9 @@
+import os
+
+# Устанавливаем переменные окружения ДО импорта приложения
+os.environ["MODEL_VERSION"] = "v1"
+os.environ["MODEL_FILE"] = "models/v1.json"
+
 from fastapi.testclient import TestClient
 from app.api import app
 

@@ -3,7 +3,7 @@ import sys
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
 from evaluate import scores
-from assess_canary import decide
+from access_canary import decide
 from route import upstream
 
 def test_metrics():
