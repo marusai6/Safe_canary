@@ -1,0 +1,22 @@
+{
+  "samples": 1000,
+  "source": "synthetic_labelled_fixture",
+  "v1": {
+    "precision": 1.0,
+    "recall": 0.83851,
+    "f1": 0.91216,
+    "tp": 405,
+    "tn": 517,
+    "fp": 0,
+    "fn": 78
+  },
+  "v2": {
+    "precision": 0.13109,
+    "recall": 0.16149,
+    "f1": 0.14471,
+    "tp": 78,
+    "tn": 0,
+    "fp": 517,
+    "fn": 405
+  }
+}

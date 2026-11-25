@@ -1,0 +1,29 @@
+{
+  "requests": 500,
+  "success": 500,
+  "errors": 0,
+  "by_version": {
+    "v1": 476,
+    "v2": 24
+  },
+  "by_version_metrics": {
+    "v1": {
+      "requests": 476,
+      "errors": 0,
+      "p95_ms": 74.21,
+      "error_rate": 0.0
+    },
+    "v2": {
+      "requests": 24,
+      "errors": 0,
+      "p95_ms": 57.86,
+      "error_rate": 0.0
+    }
+  },
+  "p50_ms": 35.36,
+  "p95_ms": 74.21,
+  "p99_ms": 133.9,
+  "unique_request_ids": 0,
+  "model_version_missing": 0,
+  "error_rate": 0.0
+}
