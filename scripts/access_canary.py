@@ -1,33 +1,55 @@
-"""Sample routed requests; compare observed version mix to requested weights."""
+"""A fail-closed decision gate: don't promote on missing or insufficient signals."""
 import argparse
-from concurrent.futures import ThreadPoolExecutor
 import json
 from pathlib import Path
-from http_client import request_prediction, summary
 
 ROOT = Path(__file__).resolve().parents[1]
 
+def decide(quality, traffic):
+    stable = quality["v1"]
+    canary = quality["v2"]
+    total = traffic["requests"]
+    canary_observed = traffic["by_version"]["v2"]
+    reasons = []
+    # For the educational fixture the expected share is approximately 5%.
+    if canary_observed < 10:
+        reasons.append("INSUFFICIENT_CANARY_SAMPLE")
+    if traffic["errors"] > max(0, int(total * 0.01)):
+        reasons.append("ERROR_RATE_HIGH")
+    v2_technical = traffic.get("by_version_metrics", {}).get("v2", {})
+    if v2_technical.get("error_rate") is None or v2_technical["error_rate"] > 0.01:
+        reasons.append("CANARY_ERROR_RATE_HIGH_OR_MISSING")
+    if v2_technical.get("p95_ms") is None or v2_technical["p95_ms"] > 250:
+        reasons.append("CANARY_LATENCY_P95_HIGH_OR_MISSING")
+    if canary["recall"] < stable["recall"] - 0.05:
+        reasons.append("RECALL_REGRESSION")
+    if canary["f1"] < stable["f1"] - 0.05:
+        reasons.append("F1_REGRESSION")
+    return {"decision": "ROLLBACK" if reasons else "PROMOTE_ELIGIBLE",
+            "reasons": reasons, "thresholds": {"error_rate_max": .01,
+            "latency_p95_max_ms": 250, "recall_drop_max": .05,
+            "f1_drop_max": .05, "min_canary_requests": 10},
+            "observed_traffic": traffic, "offline_quality": quality,
+            "note": "Offline labels are synthetic. In real deployment delay promotion until reliable labels arrive."}
+
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--requests", type=int, default=500)
-    parser.add_argument("--workers", type=int, default=12)
-    parser.add_argument("--output", default="reports/canary_traffic.json")
-    parser.add_argument("--url", default="http://127.0.0.1:8080")
+    parser.add_argument("--expect-rejection", action="store_true",
+                        help="For teaching only: assert that the intentionally faulty v2 gets blocked")
     args = parser.parse_args()
-    
-    if args.requests <= 0 or args.workers <= 0:
-        raise SystemExit("--requests and --workers must be positive")
-        
-    with ThreadPoolExecutor(max_workers=args.workers) as executor:
-        rows = list(executor.map(lambda _: request_prediction(args.url), range(args.requests)))
-        
-    result = summary(rows)
-    out = ROOT / args.output
-    out.parent.mkdir(parents=True, exist_ok=True)
-    out.write_text(json.dumps(result, indent=2) + "\n", encoding="utf-8")
-    print(json.dumps(result, indent=2))
-    if result["errors"]:
-        raise SystemExit("HTTP_ERRORS=FAIL")
+    quality = json.loads((ROOT / "reports" / "quality.json").read_text(encoding="utf-8"))
+    traffic = json.loads((ROOT / "reports" / "canary_traffic.json").read_text(encoding="utf-8"))
+    result = decide(quality, traffic)
+    out = ROOT / "reports" / "canary_assessment.json"
+    out.write_text(json.dumps(result, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+    print(json.dumps(result, indent=2, ensure_ascii=False))
+    if args.expect_rejection:
+        if result["decision"] != "ROLLBACK" or not any(
+            item in result["reasons"] for item in ("RECALL_REGRESSION", "F1_REGRESSION")
+        ):
+            raise SystemExit("UNEXPECTED DECISION: expected an ML quality rollback")
+    elif result["decision"] != "PROMOTE_ELIGIBLE":
+        raise SystemExit("QUALITY_GATE=FAIL — version must NOT be promoted")
 
 if __name__ == "__main__":
     main()
