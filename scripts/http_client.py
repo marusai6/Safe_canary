@@ -3,7 +3,7 @@ import time
 import urllib.request
 from concurrent.futures import ThreadPoolExecutor
 
-def request_prediction(url: str, x1: float = 1.0, x2: float = 1.0) -> dict:
+def request_prediction(url: str = "http://127.0.0.1:8080", x1: float = 1.0, x2: float = 1.0) -> dict:
     data = json.dumps({"x1": x1, "x2": x2}).encode("utf-8")
     req = urllib.request.Request(url + "/predict", data=data, headers={"Content-Type": "application/json"}, method="POST")
     
